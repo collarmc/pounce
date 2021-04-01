@@ -40,6 +40,17 @@ public class EventBusTest {
         eventBus.unsubscribe(listener);
     }
 
+    @Test
+    public void deadEvents() {
+        EventBus eventBus = new EventBus(Runnable::run);
+        DeadListener listener = new DeadListener();
+        eventBus.subscribe(listener);
+        Event e = new Event();
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+        eventBus.unsubscribe(listener);
+    }
+
     public static class Event {}
 
     public static class CallerListener {
@@ -62,6 +73,14 @@ public class EventBusTest {
         Event event;
         @Subscribe(Preference.POOL)
         public void pool(Event event) {
+            this.event = event;
+        }
+    }
+
+    public static class DeadListener {
+        Object event;
+        @Subscribe(Preference.CALLER)
+        public void pool(Object event) {
             this.event = event;
         }
     }
