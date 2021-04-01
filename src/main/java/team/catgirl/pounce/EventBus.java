@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -17,7 +18,7 @@ public final class EventBus {
 
     private static final Logger LOGGER = Logger.getLogger(EventBus.class.getName());
 
-    private final ConcurrentHashMap<Class<?>, List<ListenerInfo>> listeners = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Class<?>, CopyOnWriteArrayList<ListenerInfo>> listeners = new ConcurrentHashMap<>();
     private final Consumer<Runnable> mainThreadConsumer;
 
     /**
@@ -45,8 +46,8 @@ public final class EventBus {
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
                     listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
-                        listenerInfos = listenerInfos == null ? new LinkedList<>() : listenerInfos;
-                        Subscribe annotation = method.getDeclaringClass().getAnnotation(Subscribe.class);
+                        listenerInfos = listenerInfos == null ? new CopyOnWriteArrayList<>() : listenerInfos;
+                        Subscribe annotation = method.getAnnotation(Subscribe.class);
                         listenerInfos.add(new ListenerInfo(listener, method, eventClass, annotation.value()));
                         return listenerInfos;
                     });
