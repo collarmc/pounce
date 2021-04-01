@@ -41,6 +41,17 @@ public class EventBusTest {
     }
 
     @Test
+    public void privateListener() {
+        PrivateListener listener = new PrivateListener();
+        EventBus eventBus = new EventBus(Runnable::run);
+        eventBus.subscribe(listener);
+        Event e = new Event();
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+        eventBus.unsubscribe(listener);
+    }
+
+    @Test
     public void deadEvents() {
         EventBus eventBus = new EventBus(Runnable::run);
         DeadListener listener = new DeadListener();
@@ -56,7 +67,7 @@ public class EventBusTest {
     public static class CallerListener {
         Event event;
         @Subscribe(Preference.CALLER)
-        public void caller(Event event) {
+        public void exec(Event event) {
             this.event = event;
         }
     }
@@ -64,7 +75,7 @@ public class EventBusTest {
     public static class MainListener {
         Event event;
         @Subscribe(Preference.MAIN)
-        public void main(Event event) {
+        public void exec(Event event) {
             this.event = event;
         }
     }
@@ -72,7 +83,7 @@ public class EventBusTest {
     public static class PoolListener {
         Event event;
         @Subscribe(Preference.POOL)
-        public void pool(Event event) {
+        public void exec(Event event) {
             this.event = event;
         }
     }
@@ -80,7 +91,15 @@ public class EventBusTest {
     public static class DeadListener {
         Object event;
         @Subscribe(Preference.CALLER)
-        public void pool(Object event) {
+        public void exec(Object event) {
+            this.event = event;
+        }
+    }
+
+    public static class PrivateListener {
+        Object event;
+        @Subscribe(Preference.CALLER)
+        private void exec(Object event) {
             this.event = event;
         }
     }

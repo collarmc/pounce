@@ -48,6 +48,9 @@ public final class EventBus {
                     Parameter parameter = method.getParameters()[0];
                     listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
                         listenerInfos = listenerInfos == null ? new CopyOnWriteArrayList<>() : listenerInfos;
+                        if (!method.isAccessible()) {
+                            method.setAccessible(true);
+                        }
                         Subscribe annotation = method.getAnnotation(Subscribe.class);
                         listenerInfos.add(new ListenerInfo(listener, method, eventClass, annotation.value()));
                         return listenerInfos;
