@@ -1,4 +1,4 @@
-package team.catgirl.event;
+package team.catgirl.pounce;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -6,6 +6,7 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,12 +17,16 @@ public final class EventBus {
 
     private static final Logger LOGGER = Logger.getLogger(EventBus.class.getName());
 
-    private final ConcurrentHashMap<Class<? extends Event>, List<ListenerInfo>> listeners = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Class<?>, List<ListenerInfo>> listeners = new ConcurrentHashMap<>();
+    private final Consumer<Runnable> mainThreadConsumer;
 
     /**
      * Creates a new EventBus
+     * @param mainThreadConsumer to run task on the main thread
      */
-    public EventBus() {}
+    public EventBus(Consumer<Runnable> mainThreadConsumer) {
+        this.mainThreadConsumer = mainThreadConsumer;
+    }
 
     /**
      * Registers a class to receiving events.
@@ -36,13 +41,13 @@ public final class EventBus {
         }
         classes.stream().flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
                 .filter(method -> method.getParameterCount() == 1
-                        && method.isAnnotationPresent(Subscribe.class)
-                        && Event.class.isAssignableFrom(method.getParameters()[0].getType()))
+                        && method.isAnnotationPresent(Subscribe.class))
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
-                    listeners.compute((Class<? extends Event>)parameter.getType(), (eventClass, listenerInfos) -> {
+                    listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
                         listenerInfos = listenerInfos == null ? new LinkedList<>() : listenerInfos;
-                        listenerInfos.add(new ListenerInfo(listener, method, eventClass));
+                        Subscribe annotation = method.getDeclaringClass().getAnnotation(Subscribe.class);
+                        listenerInfos.add(new ListenerInfo(listener, method, eventClass, annotation.value()));
                         return listenerInfos;
                     });
                 });
@@ -68,20 +73,36 @@ public final class EventBus {
      * Dispatches an event
      * @param event to dispatch
      */
-    public void dispatch(Event event) {
+    public void dispatch(Object event) {
         List<ListenerInfo> listenerInfos = listeners.get(event.getClass());
-        if (listenerInfos != null) {
-            listenerInfos.forEach(listenerInfo -> {
-                if (listenerInfo.async) {
-                    ForkJoinPool.commonPool().submit(() -> dispatch(event, listenerInfo));
-                } else {
-                    dispatch(event, listenerInfo);
-                }
-            });
+        if (listenerInfos != null && !listenerInfos.isEmpty()) {
+            dispatchAll(event, listenerInfos);
+        } else {
+            // If it didn't match, then just send it to a dead event listener that listens to object
+            listenerInfos = listeners.get(Object.class);
+            if (listenerInfos != null) {
+                dispatchAll(event, listenerInfos);
+            }
         }
     }
 
-    private void dispatch(Event event, ListenerInfo listenerInfo) {
+    private void dispatchAll(Object event, List<ListenerInfo> listenerInfos) {
+        listenerInfos.forEach(listenerInfo -> {
+            switch (listenerInfo.preference) {
+                case MAIN:
+                    mainThreadConsumer.accept(() -> dispatch(event, listenerInfo));
+                    break;
+                case CALLER:
+                    dispatch(event, listenerInfo);
+                    break;
+                case POOL:
+                    ForkJoinPool.commonPool().submit(() -> dispatch(event, listenerInfo));
+                    break;
+            }
+        });
+    }
+
+    private void dispatch(Object event, ListenerInfo listenerInfo) {
         try {
             listenerInfo.method.invoke(listenerInfo.target, event);
         } catch (IllegalAccessException | InvocationTargetException e) {
@@ -95,15 +116,18 @@ public final class EventBus {
         /** Listener method to invoke */
         public final Method method;
         /** The event type **/
-        public final Class<? extends Event> eventType;
-        /** execute async or on dispatchers thread */
-        public final boolean async;
+        public final Class<?> eventType;
+        /** Where it will be executed **/
+        public final Preference preference;
 
-        public ListenerInfo(Object target, Method method, Class<? extends Event> eventType) {
+        public ListenerInfo(Object target,
+                            Method method,
+                            Class<?> eventType,
+                            Preference preference) {
             this.target = target;
             this.method = method;
             this.eventType = eventType;
-            this.async = eventType.isAnnotationPresent(AsyncEvent.class);
+            this.preference = preference;
         }
     }
 }

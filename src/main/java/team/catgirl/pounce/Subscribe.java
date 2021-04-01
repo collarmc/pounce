@@ -1,4 +1,4 @@
-package team.catgirl.event;
+package team.catgirl.pounce;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -12,4 +12,6 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface Subscribe {}
+public @interface Subscribe {
+    Preference value() default Preference.POOL;
+}
