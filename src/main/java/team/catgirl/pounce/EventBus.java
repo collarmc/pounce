@@ -1,5 +1,6 @@
 package team.catgirl.pounce;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -85,6 +86,17 @@ public final class EventBus {
                 dispatchAll(event, listenerInfos);
             }
         }
+        // Remove weak listeners
+        ForkJoinPool.commonPool().submit(() -> {
+            listeners.forEachEntry(10, entry -> {
+                CopyOnWriteArrayList<ListenerInfo> listeners = entry.getValue();
+                listeners.forEach(listenerInfo -> {
+                    if (listenerInfo.target.get() == null) {
+                        listeners.remove(listenerInfo);
+                    }
+                });
+            });
+        });
     }
 
     private void dispatchAll(Object event, List<ListenerInfo> listenerInfos) {
@@ -105,7 +117,10 @@ public final class EventBus {
 
     private void dispatch(Object event, ListenerInfo listenerInfo) {
         try {
-            listenerInfo.method.invoke(listenerInfo.target, event);
+            Object target = listenerInfo.target.get();
+            if (target != null) {
+                listenerInfo.method.invoke(target, event);
+            }
         } catch (IllegalAccessException | InvocationTargetException e) {
             LOGGER.log(Level.SEVERE, "Problem invoking listener", e);
         }
@@ -113,7 +128,7 @@ public final class EventBus {
 
     private static final class ListenerInfo {
         /** Object reference to the listener */
-        public final Object target;
+        public final WeakReference<Object> target;
         /** Listener method to invoke */
         public final Method method;
         /** The event type **/
@@ -125,7 +140,7 @@ public final class EventBus {
                             Method method,
                             Class<?> eventType,
                             Preference preference) {
-            this.target = target;
+            this.target = new WeakReference<>(target);
             this.method = method;
             this.eventType = eventType;
             this.preference = preference;
