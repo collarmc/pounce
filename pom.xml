@@ -5,11 +5,11 @@
     <groupId>team.catgirl</groupId>
     <artifactId>pounce</artifactId>
     <packaging>jar</packaging>
-    <version>0.4-SNAPSHOT</version>
+    <version>0.4</version>
 
     <scm>
         <connection>scm:git:git@github.com:team-catgirl/pounce.git</connection>
-        <tag>HEAD</tag>
+        <tag>pounce-0.4</tag>
     </scm>
 
     <properties>
