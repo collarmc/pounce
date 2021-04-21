@@ -52,6 +52,17 @@ public class EventBusTest {
     }
 
     @Test
+    public void cancelable() {
+        CancelableListener listener = new CancelableListener();
+        EventBus eventBus = new EventBus(Runnable::run);
+        eventBus.subscribe(listener);
+        CancelableEvent e = new CancelableEvent();
+        eventBus.dispatch(e);
+        Assert.assertEquals(listener.value, 50);
+        eventBus.unsubscribe(listener);
+    }
+
+    @Test
     public void deadEvents() {
         EventBus eventBus = new EventBus(Runnable::run);
         DeadListener listener = new DeadListener();
@@ -103,4 +114,25 @@ public class EventBusTest {
             this.event = event;
         }
     }
+
+    public static class CancelableListener {
+        int value = 0;
+        @Subscribe(value = Preference.CALLER, priority = 10)
+        public void call1(CancelableEvent event) {
+            value = value + 10;
+        }
+
+        @Subscribe(value = Preference.CALLER, priority = 5)
+        public void call2(CancelableEvent event) {
+            value = value * 5;
+            event.cancel();
+        }
+
+        @Subscribe(value = Preference.CALLER, priority = 1)
+        public void neverCalled(CancelableEvent event) {
+            throw new IllegalStateException();
+        }
+    }
+
+    public static class CancelableEvent implements Cancelable {}
 }
