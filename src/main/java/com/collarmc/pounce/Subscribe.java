@@ -1,4 +1,4 @@
-package team.catgirl.pounce;
+package com.collarmc.pounce;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

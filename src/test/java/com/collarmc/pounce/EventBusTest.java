@@ -1,4 +1,4 @@
-package team.catgirl.pounce;
+package com.collarmc.pounce;
 
 import org.junit.Assert;
 import org.junit.Test;
