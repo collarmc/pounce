@@ -58,7 +58,7 @@
         <repository>
             <id>github</id>
             <name>${project.artifactId}</name>
-            <url>https://maven.pkg.github.com/collarmc/pounce</url>
+            <url>file:///${project.basedir}/../maven</url>
         </repository>
     </distributionManagement>
 </project>
