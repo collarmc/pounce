@@ -5,11 +5,11 @@
     <groupId>com.collarmc</groupId>
     <artifactId>pounce</artifactId>
     <packaging>jar</packaging>
-    <version>0.5-SNAPSHOT</version>
+    <version>0.5</version>
 
     <scm>
         <connection>scm:git:git@github.com:collarmc/pounce.git</connection>
-        <tag>HEAD</tag>
+        <tag>pounce-0.5</tag>
     </scm>
 
     <properties>
