@@ -1,4 +1,4 @@
-package team.catgirl.pounce;
+package com.collarmc.pounce;
 
 /**
  * Cancelable event mixin
