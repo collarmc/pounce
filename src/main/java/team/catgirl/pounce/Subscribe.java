@@ -14,5 +14,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface Subscribe {
     Preference value() default Preference.POOL;
-    Class<? extends Filter> filter() default Filter.class;
+    int priority() default 1;
 }
