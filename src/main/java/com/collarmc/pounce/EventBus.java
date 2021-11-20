@@ -33,7 +33,6 @@ public final class EventBus {
     /**
      * Registers a class to receiving events.
      */
-    @SuppressWarnings("unchecked")
     public void subscribe(Object listener) {
         List<Class<?>> classes = new LinkedList<>();
         Class<?> currentClass = listener.getClass();
@@ -42,8 +41,7 @@ public final class EventBus {
             currentClass = currentClass.getSuperclass();
         }
         classes.stream().flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
-                .filter(method -> method.getParameterCount() == 1
-                        && method.isAnnotationPresent(Subscribe.class))
+                .filter(method -> method.getParameterCount() == 1 && method.isAnnotationPresent(Subscribe.class))
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
                     listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
