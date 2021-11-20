@@ -51,14 +51,16 @@ public final class EventBus {
                         if (!method.isAccessible()) {
                             method.setAccessible(true);
                         }
-                        Subscribe annotation = method.getAnnotation(Subscribe.class);
+                        Subscribe subscribe = method.getAnnotation(Subscribe.class);
+                        EventInfo eventInfo = eventClass.getAnnotation(EventInfo.class);
+                        Preference preference = eventInfo != null && eventInfo.preference() != null ? eventInfo.preference() : subscribe.value();
                         ListenerInfo listenerInfo = new ListenerInfo(
                                 listener,
                                 method,
                                 eventClass,
-                                annotation.value(),
+                                preference,
                                 Cancelable.class.isAssignableFrom(eventClass),
-                                annotation.priority());
+                                subscribe.priority());
                         listenerInfos.add(listenerInfo);
                         return listenerInfos.stream().sorted((o1, o2) -> Integer.compare(o2.priority, o1.priority)).collect(Collectors.toList());
                     });

@@ -117,18 +117,18 @@ public class EventBusTest {
 
     public static class CancelableListener {
         int value = 0;
-        @Subscribe(value = Preference.CALLER, priority = 10)
+        @Subscribe(value = Preference.CALLER)
         public void call1(CancelableEvent event) {
             value = value + 10;
         }
 
-        @Subscribe(value = Preference.CALLER, priority = 5)
+        @Subscribe(value = Preference.CALLER)
         public void call2(CancelableEvent event) {
             value = value * 5;
             event.cancel();
         }
 
-        @Subscribe(value = Preference.CALLER, priority = 1)
+        @Subscribe(value = Preference.CALLER)
         public void neverCalled(CancelableEvent event) {
             throw new IllegalStateException();
         }
