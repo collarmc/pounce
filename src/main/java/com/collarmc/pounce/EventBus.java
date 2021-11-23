@@ -134,6 +134,9 @@ public final class EventBus {
                 }
             }
         }
+        if (event instanceof Cancelable) {
+            CancelableState.clear((Cancelable) event);
+        }
     }
 
     private void dispatch(Object event, ListenerInfo listenerInfo) {
