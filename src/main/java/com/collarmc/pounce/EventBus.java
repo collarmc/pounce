@@ -6,11 +6,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
  * A very simple event bus
@@ -19,7 +19,7 @@ public final class EventBus {
 
     private static final Logger LOGGER = Logger.getLogger(EventBus.class.getName());
 
-    private final ConcurrentHashMap<Class<?>, CopyOnWriteArrayList<ListenerInfo>> listeners = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Class<?>, List<ListenerInfo>> listeners = new ConcurrentHashMap<>();
     private final Consumer<Runnable> mainThreadConsumer;
 
     /**
@@ -33,7 +33,6 @@ public final class EventBus {
     /**
      * Registers a class to receiving events.
      */
-    @SuppressWarnings("unchecked")
     public void subscribe(Object listener) {
         List<Class<?>> classes = new LinkedList<>();
         Class<?> currentClass = listener.getClass();
@@ -42,18 +41,26 @@ public final class EventBus {
             currentClass = currentClass.getSuperclass();
         }
         classes.stream().flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
-                .filter(method -> method.getParameterCount() == 1
-                        && method.isAnnotationPresent(Subscribe.class))
+                .filter(method -> method.getParameterCount() == 1 && method.isAnnotationPresent(Subscribe.class))
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
                     listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
-                        listenerInfos = listenerInfos == null ? new CopyOnWriteArrayList<>() : listenerInfos;
+                        listenerInfos = listenerInfos == null ? new LinkedList<>() : listenerInfos;
                         if (!method.isAccessible()) {
                             method.setAccessible(true);
                         }
-                        Subscribe annotation = method.getAnnotation(Subscribe.class);
-                        listenerInfos.add(new ListenerInfo(listener, method, eventClass, annotation.value()));
-                        return listenerInfos;
+                        Subscribe subscribe = method.getAnnotation(Subscribe.class);
+                        EventInfo eventInfo = eventClass.getAnnotation(EventInfo.class);
+                        Preference preference = eventInfo != null && eventInfo.preference() != null ? eventInfo.preference() : subscribe.value();
+                        ListenerInfo listenerInfo = new ListenerInfo(
+                                listener,
+                                method,
+                                eventClass,
+                                preference,
+                                Cancelable.class.isAssignableFrom(eventClass),
+                                subscribe.priority());
+                        listenerInfos.add(listenerInfo);
+                        return listenerInfos.stream().sorted((o1, o2) -> Integer.compare(o2.priority, o1.priority)).collect(Collectors.toList());
                     });
                 });
     }
@@ -92,7 +99,7 @@ public final class EventBus {
         // Remove weak listeners
         ForkJoinPool.commonPool().submit(() -> {
             listeners.forEachEntry(10, entry -> {
-                CopyOnWriteArrayList<ListenerInfo> listeners = entry.getValue();
+                List<ListenerInfo> listeners = entry.getValue();
                 listeners.forEach(listenerInfo -> {
                     if (listenerInfo.target.get() == null) {
                         listeners.remove(listenerInfo);
@@ -103,7 +110,7 @@ public final class EventBus {
     }
 
     private void dispatchAll(Object event, List<ListenerInfo> listenerInfos) {
-        listenerInfos.forEach(listenerInfo -> {
+        for (ListenerInfo listenerInfo : listenerInfos) {
             switch (listenerInfo.preference) {
                 case MAIN:
                     mainThreadConsumer.accept(() -> dispatch(event, listenerInfo));
@@ -112,10 +119,21 @@ public final class EventBus {
                     dispatch(event, listenerInfo);
                     break;
                 case POOL:
-                    ForkJoinPool.commonPool().submit(() -> dispatch(event, listenerInfo));
+                    if (listenerInfo.isCancelable) {
+                        // Cancelable events cannot be run in the pool as they are inherently non-async
+                        dispatch(event, listenerInfo);
+                    } else {
+                        ForkJoinPool.commonPool().submit(() -> dispatch(event, listenerInfo));
+                    }
                     break;
             }
-        });
+            if (listenerInfo.isCancelable) {
+                Cancelable cancelable = (Cancelable) event;
+                if (cancelable.isCanceled()) {
+                    break;
+                }
+            }
+        }
     }
 
     private void dispatch(Object event, ListenerInfo listenerInfo) {
@@ -138,15 +156,22 @@ public final class EventBus {
         public final Class<?> eventType;
         /** Where it will be executed **/
         public final Preference preference;
+        /** Cancelable */
+        public final boolean isCancelable;
+        public final int priority;
 
         public ListenerInfo(Object target,
                             Method method,
                             Class<?> eventType,
-                            Preference preference) {
+                            Preference preference,
+                            boolean isCancelable,
+                            int priority) {
             this.target = new WeakReference<>(target);
             this.method = method;
             this.eventType = eventType;
             this.preference = preference;
+            this.isCancelable = isCancelable;
+            this.priority = priority;
         }
     }
 }
