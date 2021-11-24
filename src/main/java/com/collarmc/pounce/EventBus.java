@@ -115,6 +115,7 @@ public final class EventBus {
                 case MAIN:
                     mainThreadConsumer.accept(() -> dispatch(event, listenerInfo));
                     break;
+                case DISPATCH:
                 case CALLER:
                     dispatch(event, listenerInfo);
                     break;
