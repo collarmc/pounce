@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 /**
  * A very simple event bus
  */
-public final class EventBus {
+public final class EventBus implements EventDispatcher {
 
     private static final Logger LOGGER = Logger.getLogger(EventBus.class.getName());
 
@@ -85,6 +85,7 @@ public final class EventBus {
      * Dispatches an event
      * @param event to dispatch
      */
+    @Override
     public void dispatch(Object event) {
         List<ListenerInfo> listenerInfos = listeners.get(event.getClass());
         if (listenerInfos != null && !listenerInfos.isEmpty()) {
