@@ -9,4 +9,11 @@ public interface EventDispatcher {
      * @param event to dispatch
      */
     void dispatch(Object event);
+
+    /**
+     * Dispatch an event
+     * @param event to dispatch
+     * @param callback when event is canceled
+     */
+    void dispatch(Object event, CancelableCallback callback);
 }

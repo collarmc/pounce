@@ -73,20 +73,16 @@ public final class EventBus implements EventDispatcher {
                 });
     }
 
-    /**
-     * Dispatches an event
-     * @param event to dispatch
-     */
     @Override
-    public void dispatch(Object event) {
+    public void dispatch(Object event, CancelableCallback callback) {
         ConcurrentLinkedDeque<ListenerInfo> listenerInfos = listeners.get(event.getClass());
         if (listenerInfos != null && !listenerInfos.isEmpty()) {
-            dispatchAll(event, listenerInfos);
+            dispatchAll(event, listenerInfos, callback);
         } else {
             // If it didn't match, then just send it to a dead event listener that listens to object
             listenerInfos = listeners.get(Object.class);
             if (listenerInfos != null) {
-                dispatchAll(event, listenerInfos);
+                dispatchAll(event, listenerInfos, callback);
             }
         }
         // Remove weak listeners
@@ -99,6 +95,13 @@ public final class EventBus implements EventDispatcher {
                     }
                 });
             });
+        });
+    }
+
+    @Override
+    public void dispatch(Object event) {
+        dispatch(event, e -> {
+            LOGGER.warning("Event " + event.getClass().getName() + " was canceled without registering a callback in dispatch");
         });
     }
 
@@ -128,7 +131,7 @@ public final class EventBus implements EventDispatcher {
                 });
     }
 
-    private void dispatchAll(Object event, ConcurrentLinkedDeque<ListenerInfo> listenerInfos) {
+    private void dispatchAll(Object event, ConcurrentLinkedDeque<ListenerInfo> listenerInfos, CancelableCallback callback) {
         for (ListenerInfo listenerInfo : listenerInfos) {
             switch (listenerInfo.preference) {
                 case MAIN:
@@ -149,7 +152,8 @@ public final class EventBus implements EventDispatcher {
             }
             if (listenerInfo.isCancelable) {
                 Cancelable cancelable = (Cancelable) event;
-                if (cancelable.isCanceled()) {
+                if (CancelableState.isCanceled(cancelable)) {
+                    callback.canceled(event);
                     break;
                 }
             }
