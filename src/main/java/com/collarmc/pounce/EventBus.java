@@ -32,28 +32,11 @@ public final class EventBus implements EventDispatcher {
     }
 
     /**
-     * Registers an object to receiving events using a weakly held reference
-     * This is the same as {@link #subscribeWeakly(Object)}
+     * Registers an object to receiving events
      */
     public void subscribe(Object listener) {
-        subscribeWeakly(listener);
+        doSubscribe(listener, EventBus::createGeneratedListener);
     }
-
-    /**
-     * Registers an object to receiving events using a weakly held reference
-     */
-    public void subscribeWeakly(Object listener) {
-        doSubscribe(listener, EventBus::createWeakListener);
-    }
-
-    /**
-     * Registers an object to receiving events using a strongly held reference
-     * To release the reference, you must call {@link #unsubscribe(Object)}
-     */
-    public void subscribeStrongly(Object listener) {
-        doSubscribe(listener, EventBus::createStrongListener);
-    }
-
     /**
      * Unregisters a listener from receiving events.
      */
@@ -85,17 +68,6 @@ public final class EventBus implements EventDispatcher {
                 dispatchAll(event, listenerInfos, callback);
             }
         }
-        // Remove weak listeners
-        ForkJoinPool.commonPool().submit(() -> {
-            listeners.forEachEntry(10, entry -> {
-                ConcurrentLinkedDeque<ListenerInfo> listeners = entry.getValue();
-                listeners.forEach(listenerInfo -> {
-                    if (listenerInfo.strongTarget == null && listenerInfo.weakTarget.get() == null) {
-                        listeners.remove(listenerInfo);
-                    }
-                });
-            });
-        });
     }
 
     @Override
@@ -112,7 +84,7 @@ public final class EventBus implements EventDispatcher {
             classes.add(currentClass);
             currentClass = currentClass.getSuperclass();
         }
-        classes.stream().flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
+        classes.stream().flatMap(aClass -> Arrays.stream(aClass.getMethods()))
                 .filter(method -> method.getParameterCount() == 1 && method.isAnnotationPresent(Subscribe.class))
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
@@ -131,6 +103,17 @@ public final class EventBus implements EventDispatcher {
                 });
     }
 
+    private static ListenerInfo createGeneratedListener(Object listenerInstance, Method listenerMethod, Class<?> eventType, Subscribe subscribe, Preference preference) {
+        return new ListenerInfo(
+                MethodAccessor.generate(listenerInstance, listenerMethod, eventType),
+                listenerInstance,
+                listenerMethod,
+                eventType,
+                preference,
+                Cancelable.class.isAssignableFrom(eventType),
+                subscribe.priority());
+    }
+
     private void dispatchAll(Object event, ConcurrentLinkedDeque<ListenerInfo> listenerInfos, CancelableCallback callback) {
         for (ListenerInfo listenerInfo : listenerInfos) {
             switch (listenerInfo.preference) {
@@ -142,7 +125,7 @@ public final class EventBus implements EventDispatcher {
                     dispatch(event, listenerInfo);
                     break;
                 case POOL:
-                    if (listenerInfo.isCancelable) {
+                    if (listenerInfo.isCancellable) {
                         // Cancelable events cannot be run in the pool as they are inherently non-async
                         dispatch(event, listenerInfo);
                     } else {
@@ -150,7 +133,7 @@ public final class EventBus implements EventDispatcher {
                     }
                     break;
             }
-            if (listenerInfo.isCancelable) {
+            if (listenerInfo.isCancellable) {
                 Cancelable cancelable = (Cancelable) event;
                 if (CancelableState.isCanceled(cancelable)) {
                     callback.canceled(event);
@@ -165,35 +148,10 @@ public final class EventBus implements EventDispatcher {
 
     private void dispatch(Object event, ListenerInfo listenerInfo) {
         try {
-            Object target = listenerInfo.getTarget();
-            if (target != null) {
-                listenerInfo.method.invoke(target, event);
-            }
-        } catch (IllegalAccessException | InvocationTargetException e) {
+            listenerInfo.methodAccessor.executeEvent(event);
+        } catch (LinkageError e) {
             LOGGER.log(Level.SEVERE, "Problem invoking listener", e);
         }
-    }
-
-    private static ListenerInfo createStrongListener(Object listener, Method method, Class<?> eventClass, Subscribe subscribe, Preference preference) {
-        return new ListenerInfo(
-                null,
-                listener,
-                method,
-                eventClass,
-                preference,
-                Cancelable.class.isAssignableFrom(eventClass),
-                subscribe.priority());
-    }
-
-    private static ListenerInfo createWeakListener(Object listener, Method method, Class<?> eventClass, Subscribe subscribe, Preference preference) {
-        return new ListenerInfo(
-                null,
-                listener,
-                method,
-                eventClass,
-                preference,
-                Cancelable.class.isAssignableFrom(eventClass),
-                subscribe.priority());
     }
 
     @FunctionalInterface
@@ -202,9 +160,10 @@ public final class EventBus implements EventDispatcher {
     }
 
     private static final class ListenerInfo {
-        /** Object reference to the listener */
-        private final WeakReference<Object> weakTarget;
-        private final Object strongTarget;
+        /** Listener accessor **/
+        public final MethodAccessor methodAccessor;
+        /** Listener reference **/
+        public final Object target;
         /** Listener method to invoke */
         public final Method method;
         /** The event type **/
@@ -212,27 +171,27 @@ public final class EventBus implements EventDispatcher {
         /** Where it will be executed **/
         public final Preference preference;
         /** Cancelable */
-        public final boolean isCancelable;
+        public final boolean isCancellable;
         public final int priority;
 
-        public ListenerInfo(WeakReference<Object> weakTarget,
-                            Object strongTarget,
+        public ListenerInfo(MethodAccessor methodAccessor,
+                            Object target,
                             Method method,
                             Class<?> eventType,
                             Preference preference,
-                            boolean isCancelable,
+                            boolean isCancellable,
                             int priority) {
-            this.weakTarget = weakTarget;
-            this.strongTarget = strongTarget;
+            this.methodAccessor = methodAccessor;
+            this.target = target;
             this.method = method;
             this.eventType = eventType;
             this.preference = preference;
-            this.isCancelable = isCancelable;
+            this.isCancellable = isCancellable;
             this.priority = priority;
         }
 
         public Object getTarget() {
-            return weakTarget == null ? strongTarget : weakTarget.get();
+            return target;
         }
     }
 }
