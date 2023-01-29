@@ -78,7 +78,7 @@ public final class EventBus implements EventDispatcher {
     }
 
     private void doSubscribe(Object listener, ListenerCreator creator) {
-        List<Class<?>> classes = new LinkedList<>();
+        Set<Class<?>> classes = new HashSet<>();
         Class<?> currentClass = listener.getClass();
         while (currentClass != null) {
             classes.add(currentClass);
@@ -97,7 +97,10 @@ public final class EventBus implements EventDispatcher {
                         EventInfo eventInfo = eventClass.getAnnotation(EventInfo.class);
                         Preference preference = eventInfo != null && eventInfo.preference() != null ? eventInfo.preference() : subscribe.value();
                         ListenerInfo listenerInfo = creator.create(listener, method, eventClass, subscribe, preference);
-                        listenerInfos.add(listenerInfo);
+                        if (listenerInfos.stream().noneMatch(li -> Objects.equals(li.target, listenerInfo.target))) {
+                            // enforce idempotency (if we're already subscribed don't subscribe again)
+                            listenerInfos.add(listenerInfo);
+                        }
                         return listenerInfos.stream().sorted((o1, o2) -> Integer.compare(o2.priority, o1.priority)).collect(Collectors.toCollection(ConcurrentLinkedDeque::new));
                     });
                 });
