@@ -1,13 +1,12 @@
 package com.collarmc.pounce;
 
-import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,6 +21,7 @@ public final class EventBus implements EventDispatcher {
 
     private final ConcurrentHashMap<Class<?>, ConcurrentLinkedDeque<ListenerInfo>> listeners = new ConcurrentHashMap<>();
     private final Consumer<Runnable> mainThreadConsumer;
+    private final ExecutorService executorService;
 
     /**
      * Creates a new EventBus
@@ -29,6 +29,7 @@ public final class EventBus implements EventDispatcher {
      */
     public EventBus(Consumer<Runnable> mainThreadConsumer) {
         this.mainThreadConsumer = mainThreadConsumer;
+        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     /**
@@ -132,7 +133,7 @@ public final class EventBus implements EventDispatcher {
                         // Cancelable events cannot be run in the pool as they are inherently non-async
                         dispatch(event, listenerInfo);
                     } else {
-                        ForkJoinPool.commonPool().submit(() -> dispatch(event, listenerInfo));
+                        executorService.submit(() -> dispatch(event, listenerInfo));
                     }
                     break;
             }
