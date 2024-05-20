@@ -8,6 +8,33 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class EventBusTest {
+
+    @Test
+    public void unsubscribe() {
+        // Subscribe to the event
+        CallerListener listener = new CallerListener();
+        EventBus eventBus = new EventBus(Runnable::run);
+        eventBus.subscribe(listener);
+
+        Event e = new Event();
+        // Fire it
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+        listener.event = null;
+
+        // Unsubscribe
+        eventBus.unsubscribe(listener);
+
+        // dispatching the event the listener should be null
+        eventBus.dispatch(e);
+        Assert.assertNull(listener.event);
+
+        // subscribe and dispatch should fire the listener
+        eventBus.subscribe(listener);
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+    }
+
     @Test
     public void caller() {
         CallerListener listener = new CallerListener();
