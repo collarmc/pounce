@@ -36,6 +36,30 @@ public class EventBusTest {
     }
 
     @Test
+    public void inheritedModules() {
+        EventBus eventBus = new EventBus(Runnable::run);
+
+
+        CallerListener listener = new CallerListener();
+        eventBus.subscribe(listener);
+
+        CallerListenerA listenerA = new CallerListenerA();
+        eventBus.subscribe(listenerA);
+
+        CallerListenerB listenerB = new CallerListenerB();
+        eventBus.subscribe(listenerB);
+
+        Event e = new Event();
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+        Assert.assertEquals(e, listenerA.event);
+        Assert.assertEquals(e, listenerA.event2);
+        Assert.assertEquals(e, listenerB.event);
+        Assert.assertEquals(e, listenerB.event3);
+        eventBus.unsubscribe(listener);
+    }
+
+    @Test
     public void caller() {
         CallerListener listener = new CallerListener();
         EventBus eventBus = new EventBus(Runnable::run);
@@ -163,4 +187,22 @@ public class EventBusTest {
     }
 
     public static class CancelableEvent implements Cancelable {}
+
+    public static class CallerListenerA extends CallerListener {
+        public Event event2;
+
+        @Subscribe(Preference.CALLER)
+        public void exec2(Event event) {
+            this.event2 = event;
+        }
+    }
+
+    public static class CallerListenerB extends CallerListener {
+        public Event event3;
+
+        @Subscribe(Preference.CALLER)
+        public void exec3(Event event) {
+            this.event3 = event;
+        }
+    }
 }

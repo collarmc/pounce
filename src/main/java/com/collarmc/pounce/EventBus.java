@@ -82,7 +82,7 @@ public final class EventBus implements EventDispatcher {
             classes.add(currentClass);
             currentClass = currentClass.getSuperclass();
         }
-        classes.stream().flatMap(aClass -> Arrays.stream(aClass.getMethods()))
+        classes.stream().flatMap(aClass -> Arrays.stream(aClass.getDeclaredMethods()))
                 .filter(method -> method.getParameterCount() == 1 && method.isAnnotationPresent(Subscribe.class))
                 .forEach(method -> {
                     Parameter parameter = method.getParameters()[0];
@@ -95,7 +95,7 @@ public final class EventBus implements EventDispatcher {
                         EventInfo eventInfo = eventClass.getAnnotation(EventInfo.class);
                         Preference preference = eventInfo != null && eventInfo.preference() != null ? eventInfo.preference() : subscribe.value();
                         ListenerInfo listenerInfo = creator.create(listener, method, eventClass, subscribe, preference);
-                        if (listenerInfos.stream().noneMatch(li -> Objects.equals(li.target, listenerInfo.target))) {
+                        if (listenerInfos.stream().noneMatch(li -> Objects.equals(li.target, listenerInfo.target) && Objects.equals(li.method(), listenerInfo.method))) {
                             // enforce idempotency (if we're already subscribed don't subscribe again)
                             listenerInfos.add(listenerInfo);
                         }
