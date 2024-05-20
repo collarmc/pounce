@@ -1,7 +1,5 @@
 package com.collarmc.pounce;
 
-import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
@@ -44,7 +42,7 @@ public final class EventBus implements EventDispatcher {
         listeners.values().stream()
                 .flatMap(Collection::stream)
                 .forEach(listenerInfo -> {
-                    Object target = listenerInfo.getTarget();
+                    Object target = listenerInfo.target();
                     if (listener.equals(target)) {
                         listeners.compute(listenerInfo.eventType, (aClass, listenerInfos) -> {
                             if (listenerInfos != null) {
@@ -162,39 +160,21 @@ public final class EventBus implements EventDispatcher {
         ListenerInfo create(Object listener, Method method, Class<?> eventClass, Subscribe subscribe, Preference preference);
     }
 
-    private static final class ListenerInfo {
-        /** Listener accessor **/
-        public final MethodAccessor methodAccessor;
-        /** Listener reference **/
-        public final Object target;
-        /** Listener method to invoke */
-        public final Method method;
-        /** The event type **/
-        public final Class<?> eventType;
-        /** Where it will be executed **/
-        public final Preference preference;
-        /** Cancelable */
-        public final boolean isCancellable;
-        public final int priority;
-
-        public ListenerInfo(MethodAccessor methodAccessor,
-                            Object target,
-                            Method method,
-                            Class<?> eventType,
-                            Preference preference,
-                            boolean isCancellable,
-                            int priority) {
-            this.methodAccessor = methodAccessor;
-            this.target = target;
-            this.method = method;
-            this.eventType = eventType;
-            this.preference = preference;
-            this.isCancellable = isCancellable;
-            this.priority = priority;
-        }
-
-        public Object getTarget() {
-            return target;
-        }
-    }
+    /**
+     * @param methodAccessor Listener accessor
+     * @param target         Listener reference
+     * @param method         Listener method to invoke
+     * @param eventType      The event type
+     * @param preference     Where it will be executed
+     * @param isCancellable  Cancelable
+     */
+    private record ListenerInfo(
+            MethodAccessor methodAccessor,
+            Object target,
+            Method method,
+            Class<?> eventType,
+            Preference preference,
+            boolean isCancellable,
+            int priority
+    ) {}
 }
