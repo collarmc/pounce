@@ -10,6 +10,17 @@ import java.util.concurrent.atomic.AtomicLong;
 public class EventBusTest {
 
     @Test
+    public void privateSubscriber() {
+        PrivateListener listener = new PrivateListener();
+        EventBus eventBus = new EventBus(Runnable::run);
+        eventBus.subscribe(listener);
+        Event e = new Event();
+        // Fire it
+        eventBus.dispatch(e);
+        Assert.assertEquals(e, listener.event);
+    }
+
+    @Test
     public void unsubscribe() {
         // Subscribe to the event
         CallerListener listener = new CallerListener();
@@ -203,6 +214,14 @@ public class EventBusTest {
         @Subscribe(Preference.CALLER)
         public void exec3(Event event) {
             this.event3 = event;
+        }
+    }
+
+    public static class PrivateListener  {
+        Event event;
+        @Subscribe(Preference.CALLER)
+        private void exec(Event event) {
+            this.event = event;
         }
     }
 }
