@@ -26,8 +26,8 @@
         </dependency>
         <dependency>
             <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-debug-all</artifactId>
-            <version>5.2</version>
+            <artifactId>asm</artifactId>
+            <version>9.6</version>
         </dependency>
     </dependencies>
 
