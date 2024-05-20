@@ -11,14 +11,25 @@ public class EventBusTest {
 
     @Test
     public void privateSubscriber() {
-        PrivateListener listener = new PrivateListener();
-        EventBus eventBus = new EventBus(Runnable::run);
-        eventBus.subscribe(listener);
-        Event e = new Event();
-        // Fire it
-        eventBus.dispatch(e);
-        Assert.assertEquals(e, listener.event);
+        try {
+            PrivateListener listener = new PrivateListener();
+            EventBus eventBus = new EventBus(Runnable::run);
+            eventBus.subscribe(listener);
+        } catch (IllegalStateException e) {
+            Assert.assertEquals("Subscriber method private void com.collarmc.pounce.EventBusTest$PrivateListener.exec(com.collarmc.pounce.EventBusTest$Event) is private. Make this method public.", e.getMessage());
+        }
     }
+
+//    @Test
+//    public void privateSubscriber() {
+//        PrivateListener listener = new PrivateListener();
+//        EventBus eventBus = new EventBus(Runnable::run);
+//        eventBus.subscribe(listener);
+//        Event e = new Event();
+//        // Fire it
+//        eventBus.dispatch(e);
+//        Assert.assertEquals(e, listener.event);
+//    }
 
     @Test
     public void unsubscribe() {

@@ -89,7 +89,7 @@ public final class EventBus implements EventDispatcher {
                     listeners.compute(parameter.getType(), (eventClass, listenerInfos) -> {
                         listenerInfos = listenerInfos == null ? new ConcurrentLinkedDeque<>() : listenerInfos;
                         if (!method.isAccessible()) {
-                            method.setAccessible(true);
+                            throw new IllegalStateException("Subscriber method " + method + " is private. Make this method public.");
                         }
                         Subscribe subscribe = method.getAnnotation(Subscribe.class);
                         EventInfo eventInfo = eventClass.getAnnotation(EventInfo.class);
